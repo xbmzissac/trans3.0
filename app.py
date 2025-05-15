@@ -108,7 +108,7 @@ def claude_translate(text, glossary, retry=3):
     5.只输出译文，不要包含任何解释或原文。"""
 
     # 确保客户端已初始化
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    client = anthropic.Anthropic(api_key=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)
 
     for attempt in range(retry):
         try:
@@ -152,7 +152,7 @@ def gpt_translate(text, glossary, retry=3):
     5.只输出译文，不要包含任何解释或原文。"""
 
     # 确保客户端已初始化
-    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    client = openai.OpenAI(api_key=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)
 
     for attempt in range(retry):
         try:
