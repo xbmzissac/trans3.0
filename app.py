@@ -292,6 +292,13 @@ if __name__ == "__main__":
     <link href="https://fonts.googleapis.com/css2?family=Amiri&display=swap" rel="stylesheet">
     <style>
         /* 基础样式 */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
         .arabic-text {
             direction: rtl;
             font-family: 'Amiri', serif;
@@ -307,6 +314,36 @@ if __name__ == "__main__":
             grid-template-columns: repeat(3, 1fr);
             gap: 15px;
             margin-top: 20px;
+        }
+        
+        .header {
+            font-weight: bold;
+            padding: 10px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+        }
+
+        /* 表单样式 */
+        form {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        button[type="submit"] {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+        }
+        
+        button[type="submit"]:hover {
+            background: #45a049;
         }
 
         /* 新增对比模态框样式 */
@@ -362,13 +399,35 @@ if __name__ == "__main__":
             border-radius: 5px;
             display: none;
         }
+        
+        /* 加载指示器 */
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .loading-spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <h1>中阿翻译系统</h1>
     
     <!-- 文件上传表单 -->
-    <form id="translationForm" enctype="multipart/form-data">
+    <form id="translationForm" method="post" enctype="multipart/form-data">
         <div>
             <h3>1. 上传中文文本文件（多个）</h3>
             <input type="file" name="text_files" multiple accept=".txt">
@@ -381,6 +440,12 @@ if __name__ == "__main__":
         
         <button type="submit">开始翻译</button>
     </form>
+    
+    <!-- 加载指示器 -->
+    <div id="loading" class="loading">
+        <div class="loading-spinner"></div>
+        <p>正在翻译中，请稍候...</p>
+    </div>
 
     <!-- 结果展示容器 -->
     <div id="resultContainer" class="result-container"></div>
@@ -388,19 +453,19 @@ if __name__ == "__main__":
     <!-- 对比模态框 -->
     <div id="comparisonModal" class="comparison-modal">
         <div class="modal-content">
-            <span class="close-modal" style="position:absolute; right:20px; top:10px; cursor:pointer;">×</span>
+            <span class="close-modal" style="position:absolute; right:20px; top:10px; cursor:pointer; font-size:24px;">×</span>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
                 <div>
                     <h3>原文</h3>
                     <div id="modalOriginal"></div>
                 </div>
-                <div class="arabic-text">
+                <div>
                     <h3>Claude译文</h3>
-                    <div id="modalClaude"></div>
+                    <div id="modalClaude" class="arabic-text"></div>
                 </div>
-                <div class="arabic-text">
+                <div>
                     <h3>GPT译文</h3>
-                    <div id="modalGPT"></div>
+                    <div id="modalGPT" class="arabic-text"></div>
                 </div>
             </div>
         </div>
@@ -421,6 +486,9 @@ if __name__ == "__main__":
             $('#translationForm').submit(function(e) {
                 e.preventDefault();
                 
+                // 显示加载指示器
+                $('#loading').show();
+                
                 const formData = new FormData(this);
                 
                 $.ajax({
@@ -430,10 +498,12 @@ if __name__ == "__main__":
                     contentType: false,
                     processData: false,
                     success: function(response) {
+                        $('#loading').hide();
                         translationResults = response.results;
                         renderResults(translationResults);
                     },
                     error: function(xhr) {
+                        $('#loading').hide();
                         showToast('翻译失败: ' + xhr.responseText);
                     }
                 });
@@ -453,19 +523,30 @@ if __name__ == "__main__":
 
                 // 添加内容
                 results.forEach((item, index) => {
+                    // 转义引号，防止HTML注入
+                    const escapedOriginal = item.original.replace(/"/g, '&quot;');
+                    const escapedClaude = item.claude.replace(/"/g, '&quot;');
+                    const escapedGPT = item.gpt.replace(/"/g, '&quot;');
+                    
                     container.append(`
                         <div class="original">
                             ${item.original || ''}
-                            <button class="copy-btn" data-text="${item.original}">复制原文</button>
-                            <button class="compare-btn" data-index="${index}">对比</button>
+                            <div style="margin-top: 10px;">
+                                <button class="copy-btn" data-text="${escapedOriginal}">复制原文</button>
+                                <button class="compare-btn" data-index="${index}">对比</button>
+                            </div>
                         </div>
                         <div class="arabic-text">
                             ${item.claude || ''}
-                            <button class="copy-btn" data-text="${item.claude}">复制Claude</button>
+                            <div style="margin-top: 10px; text-align: left;">
+                                <button class="copy-btn" data-text="${escapedClaude}">复制Claude</button>
+                            </div>
                         </div>
                         <div class="arabic-text">
                             ${item.gpt || ''}
-                            <button class="copy-btn" data-text="${item.gpt}">复制GPT</button>
+                            <div style="margin-top: 10px; text-align: left;">
+                                <button class="copy-btn" data-text="${escapedGPT}">复制GPT</button>
+                            </div>
                         </div>
                     `);
                 });
@@ -492,7 +573,12 @@ if __name__ == "__main__":
             }
 
             // 关闭模态框
-            $('.close-modal, #comparisonModal').click(function(e) {
+            $('.close-modal').click(function() {
+                $('#comparisonModal').fadeOut();
+            });
+            
+            // 点击模态框背景关闭
+            $('#comparisonModal').click(function(e) {
                 if (e.target === this) {
                     $('#comparisonModal').fadeOut();
                 }
@@ -547,7 +633,7 @@ if __name__ == "__main__":
         logging.info("OpenAI API连接测试成功！")
         
         logging.info("启动Web服务器...")
-        app.run(host='0.0.0.0', port=5000, debug=True)
+        app.run(host='0.0.0.0', port=5000)
     except Exception as e:
         logging.error(f"启动失败: {str(e)}")
         logging.error("请检查API密钥是否正确，或者网络连接是否正常")
