@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>中阿翻译系统</title>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri&display=swap" rel="stylesheet">
+    <style>
+        /* 基础样式 */
+        .arabic-text {
+            direction: rtl;
+            font-family: 'Amiri', serif;
+            font-size: 1.2em;
+            text-align: justify;
+            line-height: 1.8;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .result-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        /* 新增对比模态框样式 */
+        .comparison-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            position: relative;
+            background: white;
+            padding: 40px;
+            margin: 20px auto;
+            width: 80%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border-radius: 5px;
+        }
+
+        /* 按钮样式 */
+        .copy-btn, .compare-btn {
+            margin: 5px;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .copy-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .compare-btn {
+            background: #2196F3;
+            color: white;
+        }
+
+        /* 提示信息 */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>中阿翻译系统</h1>
+    
+    <!-- 文件上传表单 -->
+    <form id="translationForm" enctype="multipart/form-data">
+        <div>
+            <h3>1. 上传中文文本文件（多个）</h3>
+            <input type="file" name="text_files" multiple accept=".txt">
+        </div>
+        
+        <div>
+            <h3>2. 上传术语表（Excel）</h3>
+            <input type="file" name="glossary_file" accept=".xlsx">
+        </div>
+        
+        <button type="submit">开始翻译</button>
+    </form>
+
+    <!-- 结果展示容器 -->
+    <div id="resultContainer" class="result-container"></div>
+
+    <!-- 对比模态框 -->
+    <div id="comparisonModal" class="comparison-modal">
+        <div class="modal-content">
+            <span class="close-modal" style="position:absolute; right:20px; top:10px; cursor:pointer;">×</span>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                <div>
+                    <h3>原文</h3>
+                    <div id="modalOriginal"></div>
+                </div>
+                <div class="arabic-text">
+                    <h3>Claude译文</h3>
+                    <div id="modalClaude"></div>
+                </div>
+                <div class="arabic-text">
+                    <h3>GPT译文</h3>
+                    <div id="modalGPT"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示信息 -->
+    <div id="toast" class="toast"></div>
+
+    <!-- 加载jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script>
+        // 全局保存翻译结果
+        let translationResults = [];
+
+        $(document).ready(function() {
+            // 表单提交处理
+            $('#translationForm').submit(function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                
+                $.ajax({
+                    url: '/translate',
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function(response) {
+                        translationResults = response.results;
+                        renderResults(translationResults);
+                    },
+                    error: function(xhr) {
+                        showToast('翻译失败: ' + xhr.responseText);
+                    }
+                });
+            });
+
+            // 渲染结果
+            function renderResults(results) {
+                const container = $('#resultContainer');
+                container.empty();
+                
+                // 添加标题
+                container.append(`
+                    <div class="header">原文</div>
+                    <div class="header arabic-text">Claude译文</div>
+                    <div class="header arabic-text">GPT译文</div>
+                `);
+
+                // 添加内容
+                results.forEach((item, index) => {
+                    container.append(`
+                        <div class="original">
+                            ${item.original || ''}
+                            <button class="copy-btn" data-text="${item.original}">复制原文</button>
+                            <button class="compare-btn" data-index="${index}">对比</button>
+                        </div>
+                        <div class="arabic-text">
+                            ${item.claude || ''}
+                            <button class="copy-btn" data-text="${item.claude}">复制Claude</button>
+                        </div>
+                        <div class="arabic-text">
+                            ${item.gpt || ''}
+                            <button class="copy-btn" data-text="${item.gpt}">复制GPT</button>
+                        </div>
+                    `);
+                });
+            }
+
+            // 复制功能
+            $(document).on('click', '.copy-btn', function() {
+                const text = $(this).data('text');
+                copyToClipboard(text);
+            });
+
+            // 对比功能
+            $(document).on('click', '.compare-btn', function() {
+                const index = $(this).data('index');
+                showComparison(translationResults[index]);
+            });
+
+            // 显示对比模态框
+            function showComparison(data) {
+                $('#modalOriginal').text(data.original);
+                $('#modalClaude').text(data.claude);
+                $('#modalGPT').text(data.gpt);
+                $('#comparisonModal').fadeIn();
+            }
+
+            // 关闭模态框
+            $('.close-modal, #comparisonModal').click(function(e) {
+                if (e.target === this) {
+                    $('#comparisonModal').fadeOut();
+                }
+            });
+
+            // 剪贴板功能
+            function copyToClipboard(text) {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    showToast('复制成功');
+                } catch (err) {
+                    showToast('复制失败，请手动选择文本');
+                }
+                
+                document.body.removeChild(textarea);
+            }
+
+            // 显示提示
+            function showToast(message) {
+                const toast = $('#toast');
+                toast.text(message).stop().fadeIn();
+                setTimeout(() => toast.fadeOut(), 2000);
+            }
+        });
+    </script>
+</body>
+</html>
