@@ -1,6 +1,6 @@
 Flask==2.3.2
 anthropic==0.51.0
-openai==1.30.0
+openai==2.0.3
 pandas==2.1.0
 openpyxl==3.1.2
 Werkzeug==2.3.6
