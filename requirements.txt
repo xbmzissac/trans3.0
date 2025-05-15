@@ -1,5 +1,5 @@
 Flask==2.3.2
-anthropic==0.23.4
+anthropic==0.51.0
 openai==1.30.0
 pandas==2.1.0
 openpyxl==3.1.2
